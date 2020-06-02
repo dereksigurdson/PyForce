@@ -688,7 +688,7 @@ def pve():
             if teams[0].level == 20:
                 levelable = False
             teams[1].ships = []
-            for i in range(2):
+            for i in range(8):
                 #teams[1].ships.append(Drone(teams[1], teams[0].level, gridleft + i * 2 * size, gridtop))
                 teams[1].ships.append(Ship(teams[1], gridleft + i * 2 * size, gridtop, 2, teams[0].level, teams[0].ships[0]))
             teams[0].enemy = teams[1].ships
