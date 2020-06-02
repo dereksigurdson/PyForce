@@ -6,7 +6,7 @@ import time
 from game import Game
 
 
-server = "192.168.2.133"
+server = "xxx.xx.xx.xxx"
 port = 5555
 
 game_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
