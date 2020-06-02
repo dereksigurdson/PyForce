@@ -5,7 +5,7 @@ import pickle
 class Network:
     def __init__(self, mode):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server = "192.168.2.133"
+        self.server = "xxx.xx.xx.xxx"
         self.port = 5555
         self.address = (self.server, self.port)
         self.teamID = self.connect(mode)
