@@ -12,17 +12,19 @@ import random
 import sys
 import time
 
+import network
 from team import Team, Ship, hit, Deets
 from network import Network
 from config import size, border, gridleft, gridtop
 from pygame.locals import *
 
-# import os
-# os.chdir("c:\\2020\\Python\\Projects\\PyForceWeb")
+import os
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 screensize = screenwidth, screenheight = 950, 560  # 490, 1000
 screen = pygame.display.set_mode(screensize)
 pygame.display.set_caption("PyForce")
+pygame.display.set_icon(pygame.image.load("images/ship003.gif"))
 info = pygame.Rect(500, 90, 450, 450)  # (20, 560, 450, 430)
 
 pygame.init()
@@ -43,13 +45,17 @@ s_boom = [pygame.mixer.Sound("sounds/boom0.wav"),
 s_shot = [pygame.mixer.Sound("sounds/laser_x.wav"),
           pygame.mixer.Sound("sounds/laser_y.wav"),
           pygame.mixer.Sound("sounds/laser_z.wav")]
+s_tada = pygame.mixer.Sound("sounds/tada.wav")
 
 grid = pygame.image.load("images/grid.gif")
+gridc = pygame.image.load("images/gridc.gif")
+chess = False
 info_1p = pygame.image.load("images/info_1p.gif")
 gridrect = grid.get_rect()
 booms = []
 boomimg = pygame.image.load("images/boom.gif")
 shield = pygame.image.load("images/shield.gif")
+shieldc = pygame.image.load("images/shieldc.gif")
 
 players = 0
 teams = []
@@ -67,26 +73,35 @@ class Button:
         self.width = width
         self.height = height
         self.teamID = teamID
+        self.selected = False
 
     def draw(self):
+        pygame.draw.rect(screen, (0, 128, 0), (info.left + self.x, info.top + self.y, self.width, self.height))
+        if self.selected:
+            pygame.draw.rect(screen, (180, 0, 0), (info.left + self.x, info.top + self.y, 3, self.height))
+            pygame.draw.rect(screen, (180, 0, 0), (info.left + self.x, info.top + self.y, self.width, 3))
+            pygame.draw.rect(screen, (180, 0, 0),
+                             (info.left + self.x + self.width - 3, info.top + self.y, 3, self.height))
+            pygame.draw.rect(screen, (180, 0, 0),
+                             (info.left + self.x, info.top + self.y + self.height - 3, self.width, 3))
+
         if self.teamID < 0:
-            pygame.draw.rect(screen, (0, 128, 0), (info.left + self.x, info.top + self.y, self.width, self.height))
             text = font20.render(self.text, 1,  (0, 0, 0))
             screen.blit(text, (info.left + self.x + self.width//2 - text.get_width()//2,
                                info.top + self.y + self.height//2 - text.get_height()//2))
         else:
-            pygame.draw.rect(screen, (0, 128, 0), (info.left + self.x, info.top + self.y, self.width, self.height))
             pygame.draw.rect(screen, (0, 0, 0), (info.left + self.x + 5, info.top + self.y + 5, self.width - 10, size + 5))
             screen.blit(pygame.image.load("images/ship" + self.text[0] + "00.gif"),
                         (info.left + self.x + 25, info.top + self.y + 10, size, size))
             text = font20.render(self.text, 1,  (0, 0, 0))
             screen.blit(text, (info.left + self.x + (size + 50)//2 - text.get_width()//2,
-                               info.top + self.y + self.height - text.get_height()))
+                               info.top + self.y + self.height - text.get_height() - 3))
 
     def click(self, pos):
         x1 = pos[0] - info.left
         y1 = pos[1] - info.top
         if self.x <= x1 <= self.x + self.width and self.y <= y1 <= self.y + self.height:
+            self.selected = True
             return True
         else:
             return False
@@ -102,23 +117,30 @@ def ready_set_go():
     draw_screen()
 
     screen.blit(pygame.Surface((300, 100)), (info.left + 30, info.top + 190))
-    screen.blit(font40.render("Ready", True, (180, 0, 0)), (info.left + 160, info.top + 190))
+    text = font40.render("Ready", True, (180, 0, 0))
+    screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 190))
     pygame.display.update((info.left + 30, info.top + 140, 400, 150))
 
     now = time.time()
     while time.time() - now < 1:
-        pass
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
 
     screen.blit(pygame.Surface((300, 100)), (info.left + 80, info.top + 190))
-    screen.blit(font40.render("Set", True, (180, 0, 0)), (info.left + 180, info.top + 190))
+    text = font40.render("Set", True, (180, 0, 0))
+    screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 190))
     pygame.display.update((info.left + 80, info.top + 160, 300, 150))
 
     now = time.time()
     while time.time() - now < 1:
-        pass
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
 
     screen.blit(pygame.Surface((300, 100)), (info.left + 80, info.top + 190))
-    screen.blit(font40.render("Go!", True, (180, 0, 0)), (info.left + 180, info.top + 190))
+    text = font40.render("Go!", True, (180, 0, 0))
+    screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 190))
     pygame.display.update((info.left + 80, info.top + 160, 300, 150))
 
 
@@ -134,22 +156,27 @@ def load_images():
         for lvl in range(4):
             spd_images = []
             for spd in range(4):
-                spd_images.append(pygame.image.load("images/ship" + str(imageMap[team]) + str(lvl) + str(spd) + ".gif"))
+                if chess:
+                    spd_images.append(pygame.image.load("images/shipc" + str(imageMap[team]) + str(lvl) + "0.gif"))
+                else:
+                    spd_images.append(pygame.image.load("images/ship" + str(imageMap[team]) + str(lvl) + str(spd) + ".gif"))
             lvl_images.append(spd_images)
         shipImages.append(lvl_images)
         shotImages.append(pygame.image.load("images/shot" + str(team) + ".gif"))
-    if imageMap[-1] == -1:
-        shipImages[teams[0].teamID][0][0] = pygame.image.load("images/ship" + str(teams[0].teamID) + "00.gif")
-        shipImages[teams[0].teamID][0][3] = pygame.image.load("images/ship" + str(teams[0].teamID) + "03.gif")
-        shotImages[teams[0].teamID] = pygame.image.load("images/shot" + str(teams[0].teamID) + ".gif")
-    else:
+    if imageMap[-1] != -1:
         # simple swap : todo allow for all team selections
         myID = teams[0].teamID
-        shipImages[myID][0][0] = pygame.image.load("images/ship" + str(imageMap[imageMap[-1]]) + "00.gif")
-        shipImages[myID][0][3] = pygame.image.load("images/ship" + str(imageMap[imageMap[-1]]) + "03.gif")
+        if chess:
+            shipImages[myID][0][0] = pygame.image.load("images/shipc" + str(imageMap[imageMap[-1]]) + "00.gif")
+            shipImages[myID][0][3] = pygame.image.load("images/shipc" + str(imageMap[imageMap[-1]]) + "00.gif")
+            shipImages[imageMap[imageMap[-1]]][0][0] = pygame.image.load("images/shipc" + str(myID) + "00.gif")
+            shipImages[imageMap[imageMap[-1]]][0][3] = pygame.image.load("images/shipc" + str(myID) + "00.gif")
+        else:
+            shipImages[myID][0][0] = pygame.image.load("images/ship" + str(imageMap[imageMap[-1]]) + "00.gif")
+            shipImages[myID][0][3] = pygame.image.load("images/ship" + str(imageMap[imageMap[-1]]) + "03.gif")
+            shipImages[imageMap[imageMap[-1]]][0][0] = pygame.image.load("images/ship" + str(myID) + "00.gif")
+            shipImages[imageMap[imageMap[-1]]][0][3] = pygame.image.load("images/ship" + str(myID) + "03.gif")
         shotImages[myID] = pygame.image.load("images/shot" + str(imageMap[imageMap[-1]]) + ".gif")
-        shipImages[imageMap[imageMap[-1]]][0][0] = pygame.image.load("images/ship" + str(myID) + "00.gif")
-        shipImages[imageMap[imageMap[-1]]][0][3] = pygame.image.load("images/ship" + str(myID) + "03.gif")
         shotImages[imageMap[imageMap[-1]]] = pygame.image.load("images/shot" + str(myID) + ".gif")
 
 
@@ -159,7 +186,7 @@ def show_lives():
         lifeleft = info.left + 116
         lifetop = info.top + 150
         for life in range(lives):
-            screen.blit(shipImages[int(0 if imageMap[-1] == -1 else imageMap[-1])][0][0], (lifeleft, lifetop, size, size))
+            screen.blit(shipImages[int(0 if imageMap[-1] == -1 else imageMap[teams[0].teamID])][0][0], (lifeleft, lifetop, size, size))
             lifeleft = lifeleft + size * 1.2
             if life in (2, 4):
                 lifeleft = info.left + 116
@@ -170,7 +197,7 @@ def show_lives():
             if teams[team].lives == 0:
                 screen.blit(font20.render("Spectating", True, (180, 0, 0)),
                             (info.left + 40 + 260 * (teams[team].teamID % 2),
-                             info.top + (110 if team > 1 else 50)))
+                             info.top + (110 if teams[team].teamID > 1 else 50)))
             for life in range(teams[team].lives):
                 show_life(teams[team], life)
 
@@ -195,28 +222,58 @@ def draw_fuel_bar(fuel, x=info.left + 32, y=info.top + 149):
 
 
 def game_over(team):
+    screen.blit(pygame.Surface((info.width, info.height)), (info.left, info.top))
 
-    if team is None:
+    if team == "Server not available":
+        text = font40.render("Cannot", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 90))
+        text = font40.render("Locate", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 130))
+        text = font40.render("Server", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 170))
+        text = font20.render("Update IP address in config.py", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 280))
+        text = font20.render("Click mouse or press any key", True, (0, 128, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 370))
+        text = font20.render("to return to the main menu", True, (0, 128, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 400))
+        pygame.display.flip()
         return
-    screen.blit(pygame.Surface((200, 100)), (info.left + 280, info.top))
-    screen.blit(pygame.Surface((500, 500)), (info.left, info.top + 40))
-    screen.blit(font40.render("Game Over", True, (180, 0, 0)), (info.left + 120, info.top + 90))
-    pygame.display.flip()
+
+    if team == "Esc":
+        text = font40.render("Until", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 90))
+        text = font40.render("Next", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 130))
+        text = font40.render("Time", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 170))
+        text = font20.render("Click mouse or press any key", True, (0, 128, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 370))
+        text = font20.render("to return to the main menu", True, (0, 128, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 400))
+        pygame.display.flip()
+        return
 
     if players == 1:
+        text = font40.render("Game Over", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 20))
+        pygame.display.flip()
+
         try:
             with open("singles.dat", "rb") as file:
                 scores = pickle.load(file)
                 file.close()
         except FileNotFoundError:
-            scores = [["Derek", 100, 5], ["Pete", 80, 4], ["Mark", 60, 3], ["Mike", 40, 2], ["Jack", 20, 1]]
+            scores = [["Derek", 10000, 5], ["Pete", 8000, 4], ["Mark", 6000, 3], ["Mike", 4000, 2], ["Jack", 2000, 1]]
             # scores = [["Derek", 10000, 5], ["Pete", 8000, 4], ["Mark", 6000, 3], ["Mike", 4000, 2], ["Jack", 2000, 1]]
 
         player_name = ""
         for i in range(5):
             if team.score > scores[i][1]:
-                screen.blit(font20.render("You got a High Score!", True, (180, 0, 0)), (info.left + 100, info.top + 190))
-                screen.blit(font20.render("Please enter your name:", True, (180, 0, 0)), (info.left + 100, info.top + 240))
+                text = font20.render("You got a High Score!", True, (180, 0, 0))
+                screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 190))
+                text = font20.render("Please enter your name:", True, (180, 0, 0))
+                screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 240))
                 while True:
                     pygame.display.update((info.left, info.top, info.width, info.height))
                     while True:
@@ -240,52 +297,57 @@ def game_over(team):
 
         screen.blit(pygame.Surface((150, 100)), (info.left + 160, info.top))
         screen.blit(pygame.Surface((450, 445)), (info.left, info.top))  # top + 40
-        screen.blit(font40.render("High Scores", True, (180, 0, 0)), (info.left + 100, info.top + 70))
-        screen.blit(font20.render("Player      Level    Score", True, (180, 0, 0)), (info.left + 80, info.top + 130))
-        screen.blit(font20.render("Press heRe to restart", True, (180, 0, 0)), (info.left + 100, info.top + 400))
+        text = font40.render("High Scores", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 70))
+        text = font20.render("Player     Level    Score", True, (0, 128, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 130))
 
-        for i in range(5):
+        for i in range(5):  # display high scores
             colour = (0, 128, 0) if scores[i][1] == team.score and scores[i][0] == player_name else (180, 0, 0)
-            screen.blit(font20.render('{:<15}'.format(scores[i][0]), True, colour),
-                        (info.left + 80, info.top + 160 + i * 25))
-            screen.blit(font20.render('{:>7}'.format(str(scores[i][2])), True, colour),
-                        (info.left + 165, info.top + 160 + i * 25))
-            screen.blit(font20.render('{:>14}'.format(str(scores[i][1])), True, colour),
-                        (info.left + 210, info.top + 160 + i * 25))
+            text = font20.render('{:<15}'.format(scores[i][0]), True, colour)
+            screen.blit(text, (info.left + 82, info.top + 160 + i * 25))
+            text = font20.render('{:>7}'.format(str(scores[i][2])), True, colour)
+            screen.blit(text, (info.left + 165, info.top + 160 + i * 25))
+            text = font20.render('{:>14}'.format(str(scores[i][1])), True, colour)
+            screen.blit(text, (info.left + 208, info.top + 160 + i * 25))
+        if team.score < scores[4][1]:  # display player score
+            text = font20.render('{:<15}'.format("You"), True, (0, 128, 0))
+            screen.blit(text, (info.left + 80, info.top + 165 + 5 * 25))
+            text = font20.render('{:>7}'.format(str(team.level)), True, (0, 128, 0))
+            screen.blit(text, (info.left + 165, info.top + 165 + 5 * 25))
+            text = font20.render('{:>14}'.format(str(team.score)), True, (0, 128, 0))
+            screen.blit(text, (info.left + 210, info.top + 165 + 5 * 25))
+
         with open("singles.dat", "wb") as file:
             pickle.dump(scores, file)
             file.close()
+    elif team is None:
+        text = font20.render("Tie game!", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 190))
     else:
-        screen.blit(font20.render("The winner is ", True, (180, 0, 0)), (info.left + 115, info.top + 190))
+        text = font40.render("Game Over", True, (180, 0, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 100))
+        text = font20.render("The winner is ", True, (180, 0, 0))
+        screen.blit(text, (info.left + 115, info.top + 190))
         screen.blit(shipImages[team.teamID][0][0], (info.left + 280, info.top + 185, size, size))
         if teams[0].teamID == team.teamID:
-            screen.blit(font20.render("Congratulations!", True, (180, 0, 0)), (info.left + 120, info.top + 240))
-            s_boom[0].play()
+            text = font20.render("Congratulations!", True, (180, 0, 0))
+            screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 240))
+            s_tada.play()
         else:
-            screen.blit(font20.render("Better luck next time", True, (180, 0, 0)), (info.left + 100, info.top + 240))
+            text = font20.render("Better luck next time", True, (180, 0, 0))
+            screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 240))
+            s_boom[0].play()
         with open("multi" + str(players) + ".dat", "wb") as file:
             pickle.dump([time.time(), players, team], file)
             file.close()
 
-    screen.blit(font20.render("Press any key", True, (180, 0, 0)), (info.left + 130, info.top + 320))
-    screen.blit(font20.render("to return to the main menu", True, (180, 0, 0)), (info.left + 70, info.top + 350))
+    text = font20.render("Click mouse or press any key", True, (0, 128, 0))
+    screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 350))
+    text = font20.render("to return to the main menu", True, (0, 128, 0))
+    screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 380))
     pygame.display.flip()
-
-
-def round_over(victor):
-
-    screen.blit(pygame.Surface((490, 450)), (info.left, info.top))
-    result = "Victory!" if victor is teams[0] else "Defeat!"
-    screen.blit(font40.render(result, True, (180, 0, 0)), (info.left + 160, info.top + 90))
-
-    victor.score += 1
-    screen.blit(font20.render("Your score", True, (180, 0, 0)), (info.left + 80, info.top + 190))
-    screen.blit(font20.render("Their score", True, (180, 0, 0)), (info.left + 280, info.top + 190))
-    screen.blit(font20.render('{:<15}'.format(teams[0].score), True, (180, 0, 0)), (info.left + 130, info.top + 240))
-    screen.blit(font20.render('{:<15}'.format(teams[1].score), True, (180, 0, 0)), (info.left + 330, info.top + 240))
-
-    screen.blit(font20.render("Press R to Ready-up", True, (180, 0, 0)), (info.left + 100, info.top + 340))
-    pygame.display.flip()
+    time.sleep(1)
 
 
 # determines ship.hit
@@ -307,6 +369,7 @@ def crash(ship):
             s_boom[0].play()
             ship.hit = True
             target.hit = True
+            time.sleep(.03)
             hitter = target.team.teamID
 
         # did ship's shot hit enemy ship?
@@ -314,10 +377,12 @@ def crash(ship):
             shipShotRect = ship.orient(teams[0].orientation, True)
             if hit(targetRect, shipShotRect, .7) and not target.inert:
                 target.hit = True
-                ship.shot = False
                 booms.append(targetRect.copy())
                 if players > 1:
                     booms.append(show_life(target.team, target.team.lives - 1))
+                #else:  # False negatives error
+                ship.shot = False
+                time.sleep(.03)
                 if target.canTakeAHit:
                     s_bzzt.play()
                 else:
@@ -334,10 +399,12 @@ def crash(ship):
             targetShotRect = target.orient(teams[0].orientation, True)
             if hit(targetShotRect, shipRect, .7) and not ship.inert:
                 ship.hit = True
-                target.shot = False
                 booms.append(shipRect.copy())
                 if players > 1:
                     booms.append(show_life(ship.team, ship.team.lives - 1))
+                #else:  # False negatives error
+                target.shot = False
+                time.sleep(.03)
                 s_boom[0].play()
                 hitter = target.team.teamID
             if target.shotRect.top + size // 2 < gridtop or target.shotRect.left + size // 2 < gridleft or \
@@ -364,7 +431,7 @@ def show_booms():
 
 
 def draw_screen():
-    screen.blit(grid, gridrect)
+    screen.blit(gridc if chess else grid, gridrect)
     screen.blit(pygame.Surface((info.width, info.height)), (info.left, info.top))
     show_booms()
 
@@ -389,12 +456,12 @@ def draw_screen():
 
     for team in teams:
         for ship in team.ships:
-            rotation = (ship.direction + team.orientation + teams[0].orientation) * -90
+            rotation = 0 if chess else (ship.direction + team.orientation + teams[0].orientation) * -90
             if not ship.inert:
                 image = shipImages[imageMap[team.teamID]][ship.rank][ship.speed]
                 screen.blit(pygame.transform.rotate(image, rotation), ship.orient(teams[0].orientation))
                 if ship.canTakeAHit:
-                    screen.blit(shield, ship.orient(teams[0].orientation))
+                    screen.blit(shieldc if chess else shield, ship.orient(teams[0].orientation))
                 if ship.canShoot and not ship.shot:
                     image = shotImages[imageMap[team.teamID]]
                     screen.blit(pygame.transform.rotate(image, rotation), ship.orient(teams[0].orientation))
@@ -420,7 +487,9 @@ def update(network):
     deets = network.send(teams[0].deets)
 
     # update remote teams' deets
-    if players == 3:
+    if players == 2:
+        teams[1].update(deets[1 - teams[0].teamID])
+    elif players == 3:
         teams[1].update(deets[1 - teams[0].teamID])
         teams[3].update(deets[3 - teams[0].teamID])
     elif players == 4:
@@ -438,6 +507,8 @@ def pvp():
     global teams
 
     network = Network(players)
+    if network.get_teamID() == "Server not available":
+        return "Server not available"
     clock = pygame.time.Clock()
     key = 0
     myID = int(network.get_teamID())
@@ -446,44 +517,82 @@ def pvp():
         screen.blit(pygame.Surface((info.width, info.height)), (info.left, info.top))
         screen.blit(font20.render("Server unavailable", True, (180, 0, 0)), (info.left + 110, info.top + 140))
         screen.blit(font20.render("Please select Single Player option", True, (180, 0, 0)), (info.left + 30, info.top + 190))
-        screen.blit(font20.render("Press any key", True, (180, 0, 0)), (info.left + 125, info.top + 320))
+        screen.blit(font20.render("Click mouse or press any key", True, (180, 0, 0)), (info.left + 125, info.top + 320))
         screen.blit(font20.render("to return to the main menu", True, (180, 0, 0)), (info.left + 65, info.top + 370))
         pygame.display.update(info)
         return
     teams = [Team(myID)]  # this thread's team
+    load_images()
     pygame.display.set_caption("PyForce - P" + str(myID))
 
     # screen.blit(grid, gridrect)
-    screen.blit(pygame.Surface((490, 450)), (info.left, info.top))
-    screen.blit(font20.render("Waiting for opponent....", True, (180, 0, 0)), (info.left + 80, info.top + 190))
-    pygame.display.update(info)
+    # screen.blit(pygame.Surface((490, 450)), (info.left, info.top))
+    # text = font20.render("These are your ships:", True, (0, 128, 0))
+    # screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 50))
+    # screen.blit(shipImages[myID][0][0], (info.left + info.width // 2 - size // 2, info.top + 100, size, size))
+    # text = font20.render("Players in the game:", True, (180, 0, 0))
+    # screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 190))
+    # pygame.display.update(info)
+
 
     # wait for opponent(s)
+    users = 2 if players == 3 else players
     while True:
-        data = network.send(teams[0].deets)
-        users = players if players != 3 else 2
-        if len(data) == users:  # enough players have joined
-            break
 
-    if players == 3:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == K_ESCAPE:
+                    return "Esc"
+
+        data = network.send(teams[0].deets)
+        if len(data) >= users:  # enough players have joined
+            break
+        else:
+            screen.blit(pygame.Surface((40, 40)), (info.left + info.width - 110, info.top + 5 + 60 * players))
+            screen.blit(font40.render(str(len(data)), True, (180, 0, 0)),
+                                      (info.left + info.width - 100, info.top + 5 + 60 * players))
+            # text = font40.render(str(len(data)) + " of " + str(users), True, (180, 0, 0))
+            # screen.blit(pygame.Surface((info.width, 50)), (info.left, info.top + 230))
+            # screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 230))
+            #
+            # for d in data:
+            #     pygame.display.update(screen.blit(shipImages[imageMap[data[d].teamID]][0][0],
+            #                                       (info.left + info.width // 2 - 3 * size + 2 * size * data[d].teamID,
+            #                                        info.top + 300, size, size)))
+            pygame.display.update(info)  # (info.left, info.top + 100, 500, size))
+            clock.tick(10)
+
+    screen.blit(font20.render("Setting up teams....", True, (180, 0, 0)), (info.left + 85, info.top + 290))
+    pygame.display.update(info)
+    #pygame.display.update((info.left + 80, info.top + 240, 400, 200))
+
+    if players == 2:
+        teams.append(Team(1 - myID, 2))
+    elif players == 3:
         teams.append(Team(1 - myID, 2))  # remote player
-        # bots (teams[2&3] are automated)
+        # bot 1 (teams[2] automated by this thread)
         teams.append(Team(myID + 2, 0, gridleft + 14 * size, gridtop + 4 * size, 3, 7))
-        network.send(teams[2].deets)  # controlled by this thread
-        teams[2].ships[0].target = teams[0].ships[0]  # targeting this player
-        teams.append(Team(3 - myID, 2, gridleft + 14 * size, gridtop + 4 * size, 3, 7))  # controlled by remote thread
         teams[2].ships[0].canTakeAHit = False
+        teams[2].ships[0].rank = 0
+        network.send(teams[2].deets)
+        teams[2].ships[0].target = teams[0].ships[0]  # targeting this player
+        # bot 2 (teams[3] automated by remote thread)
+        teams.append(Team(3 - myID, 2, gridleft + 14 * size, gridtop + 4 * size, 3, 7))
         teams[3].ships[0].canTakeAHit = False
+        teams[3].ships[0].rank = 0
     elif players == 4:
         teams.append(Team((myID + 1) % 4, 3))
         teams.append(Team((myID + 2) % 4, 2))
         teams.append(Team((myID + 3) % 4, 1))
 
-    screen.blit(font20.render("Setting up teams....", True, (180, 0, 0)), (info.left + 85, info.top + 290))
-    pygame.display.update((info.left + 80, info.top + 240, 400, 200))
-    time.sleep(1)
-
-    deets = network.send(teams[0].deets)
+    users = 4 if players == 3 else players
+    while True:
+        deets = network.send(teams[0].deets)
+        if len(deets) == users:
+            break
+        time.sleep(.1)
 
     #  Assign enemy targets, get all deets
     for teamA in teams:
@@ -493,7 +602,6 @@ def pvp():
                 for ship in teamB.ships:
                     teamA.enemy.append(ship)
 
-    load_images()
     draw_screen()
     ship_hit = False
 
@@ -506,9 +614,8 @@ def pvp():
         # move & send results
         teams[0].ships[0].move(key)  # move self
         # teams[1].ships[0].move(0)  # move remote ship (momentum)
-        if players >= 3:
-            teams[2].ships[0].move(-3 if players == 3 else 0) # move [assigned] drone (momentum[autopilot])
-            # teams[3].ships[0].move(0)  # move remote drone (momentum)
+        if players == 3:
+            teams[2].ships[0].move(-3) # move assigned drone
 
         update(network)
 
@@ -518,25 +625,53 @@ def pvp():
             crash(team.ships[0])
 
             if team.ships[0].hit:
-                team.ships[0].update()
                 ship_hit = True
+                team.ships[0].rect.left = -10000 - 1000 * team.teamID
+                team.ships[0].update()
                 team.lives -= 1
                 team.ships[0].inert = True
-                if team.teamID in {myID, myID + 2}:
+                if team.teamID == myID or (players == 3 and team.teamID == myID + 2):
                     update(network)  # send the bad news
                 team.ships[0].hit = False
                 team.ships[0].update()
 
         if ship_hit:
             # Make sure all threads are current
+            t = time.time()
             while True:
                 deets = update(network)
                 for deet in deets:
-                    if not deets[deet].current:
-                        break
-                else:
-                    ship_hit = False
+                    if not deets[deet].current and deets[deet].lives > 0:
+                        screen.blit(pygame.Surface((450, 200)), (info.left, info.top + 270))
+                        text = font20.render("Player has been hit!", True, (180, 0, 0))
+                        screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 290))
+                        text = font20.render("Must update before continuing...", True, (180, 0, 0))
+                        screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 320))
+                        pygame.display.update(info)
+                        if time.time() < t + 1:
+                            ship_hit = False
+                            break
+                        else:
+                            screen.blit(pygame.Surface((450, 200)), (info.left, info.top + 270))
+                            text = font20.render("Player not responding", True, (180, 0, 0))
+                            screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 290))
+                            text = font20.render("Sacrifices must be made...", True, (180, 0, 0))
+                            screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 320))
+                            pygame.display.update(info)
+                            time.sleep(.5)
+                            ship_hit = False
+                            for team in teams:
+                                if team.teamID == deets[deet].teamID:
+                                    deets[deet].lives -= 3
+                                    if deets[deet].lives <= 0:
+                                        team.ships[0].inert = True
+                                        deets[deet].left = -10000 - 1000 * team.teamID
+                                        deets[deet].top = -10000 - 1000 * team.teamID
+                                    network.send(deets[deet])
+                else:  # All live teams are current
                     break
+
+            draw_screen()
 
         teams_left = 0
         winner = None
@@ -549,10 +684,11 @@ def pvp():
 
                 # if team's ship is inert, does it get revived?
                 if team.ships[0].inert and not team.ships[0].shot:
-                    if team.teamID in (myID, myID + 2):  # this thread
+                    if team.teamID == myID or (players == 3 and team.teamID == myID + 2):  # this thread
                         team.ships[0].revive(5)
                     else:
                         team.ships[0].inert = False
+                        # ready_set_go()
 
         # Game over?
         if teams_left <= 1:
@@ -594,6 +730,7 @@ def pve():
     load_images()
 
     levelable = True
+    extras = 3
     key = 0
     play = True  # Game play on / off
 
@@ -623,6 +760,13 @@ def pve():
             for i in range(8):
                 teams[1].ships.append(Ship(teams[1], gridleft + i * 2 * size, gridtop, 2, teams[0].level, teams[0].ships[0]))
             teams[0].enemy = teams[1].ships
+
+        # extra life?
+        if teams[0].score > 1000 and extras == 3 or \
+            teams[0].score > 10000 and extras == 2 or \
+            teams[0].score > 100000 and extras == 1:
+            teams[0].lives += 1
+            extras -= 1
 
         draw_screen()
 
@@ -710,23 +854,17 @@ def pve():
         time.sleep(1.0 / 50)
 
 
-def select_team(btn):
-    screen.blit(pygame.Surface((500, 40)), (info.left, info.top + 430))
-    text = font40.render("*", 1, (0, 128, 0))
-    screen.blit(text, (info.left + btn.x + btn.width // 2 - 13, info.top + btn.y + btn.height + 10))
-    pygame.display.update((info.left, info.top + 430, 500, 40))
-    imageMap[-1] = btn.text[0]
-
-
 def main():
     global players
+    global chess
+    global teams
 
     while True:
 
-        buttons = [Button("Single Player", 125, 60, 180, 50),
-                   Button("Head to Head", 125, 120, 180, 50),
-                   Button("Battle Royale (fill)", 75, 180, 280, 50),
-                   Button("Battle Royale (no fill)", 75, 240, 280, 50),
+        buttons = [Button("Single Player", 115, 60, 200, 50, -1),
+                   Button("Head to Head", 115, 120, 200, 50, -2),
+                   Button("+ Head to Head +", 115, 180, 200, 50, -3),
+                   Button("Free for All", 115, 240, 200, 50, -4),
                    Button("Derek", 25, 350, size + 50, size + 40, 0),
                    Button("Krista", 125, 350, size + 50, size + 40, 1),
                    Button("Avery", 325, 350, size + 50, size + 40, 2),
@@ -736,66 +874,73 @@ def main():
 
         screen.blit(pygame.Surface((info.width, info.height)), (info.left, info.top))
         text = font40.render("Select Game Mode:", True, (0, 128, 0))
-        screen.blit(text, (info.width / 2 - text.get_width() / 2, info.top + 10))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 10))
         text = font40.render("Select Team:", True, (0, 128, 0))
-        screen.blit(text, (info.width / 2 - text.get_width() / 2, info.top + 300))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 300))
+
+        text = font20.render("Players Required:", True, (0, 128, 0))
+        screen.blit(pygame.transform.rotate(text, 90), (info.left + 20, info.top + 70))
+
+        screen.blit(font40.render("1", True, (0, 128, 0)), (info.left + 60, info.top + 65))
+        screen.blit(font40.render("2", True, (0, 128, 0)), (info.left + 60, info.top + 125))
+        screen.blit(font40.render("2", True, (0, 128, 0)), (info.left + 60, info.top + 185))
+        screen.blit(font40.render("4", True, (0, 128, 0)), (info.left + 60, info.top + 245))
+
+        text = font20.render("Players Registered:", True, (0, 128, 0))
+        screen.blit(pygame.transform.rotate(text, -90), (info.left + info.width - 60, info.top + 70))
+
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 65))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 125))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 185))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 245))
+
         for button in buttons:
             button.draw()
         pygame.display.update(info)
-
-        # indicate that a team has been selected
-        if imageMap[-1] != -1:
-            text = font40.render("*", 1, (0, 128, 0))
-            btn = buttons[int(imageMap[imageMap[-1]] + 4)]
-            screen.blit(text, (info.left + btn.x + btn.width // 2 - 13, info.top + btn.y + btn.height + 10))
-            pygame.display.update((info.left, info.top + 430, 500, 40))
 
         waiting_for_user = True
         while waiting_for_user:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == K_c:
+                        chess = True
+                        screen.blit(gridc, gridrect)
+                    else:
+                        chess = False
+                        screen.blit(grid, gridrect)
+                    pygame.display.update(pygame.Rect(0,0,info.left, gridrect.height))
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     click_pos = pygame.mouse.get_pos()
                     for button in buttons:
                         if button.click(click_pos):
-                            if button.text == "Derek":
-                                select_team(buttons[4])
-                            elif button.text == "Krista":
-                                select_team(buttons[5])
-                            elif button.text == "Ben":
-                                select_team(buttons[7])
-                            elif button.text == "Avery":
-                                select_team(buttons[6])
+                            for btn in buttons:
+                                btn.selected = btn.teamID == button.teamID
+                                btn.draw()
+                            if button.teamID >= 0:
+                                imageMap[-1] = imageMap[button.text[0]]
                             else:
                                 waiting_for_user = False
-                                user_input = button.text
+                                break
+                    pygame.display.update((info.left, info.top + 345, 500, 90))
 
-        if user_input == "Single Player":
+        if button.text == "Single Player":
             players = 1
             game_over(pve())
-        elif user_input == "Head to Head":
-            players = 2
-            game_over(pvp())
-        elif user_input == "Battle Royale (fill)":
-            players = 3
-            game_over(pvp())
-        elif user_input == "Battle Royale (no fill)":
-            players = 4
-            game_over(pvp())
         else:
-            pass
+            players = button.teamID * -1
+            game_over(pvp())
 
-        time.sleep(1)
-
+        teams = []
         players = 0
         t = time.time()
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                if event.type == pygame.KEYDOWN:
+                if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                     t -= 220
             if time.time() - t > 220:
                 break

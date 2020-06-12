@@ -6,9 +6,9 @@ from config import size, gridleft, gridtop
 
 
 class Deets:
-    def __init__(self, teamID: int, lives: int, left: int, top: int, direction: int, speed: int, shot: bool,
-                 shotLeft: int, shotTop: int, shotDirection: int, orientation: int, hit: bool, current: bool):
-        self.teamID: int = teamID
+    def __init__(self, teamID, lives, left, top, direction, speed, shot,
+                 shotLeft, shotTop, shotDirection, orientation, hit, current):
+        self.teamID = teamID
         self.lives = lives
         self.left = left
         self.top = top
@@ -26,8 +26,8 @@ class Deets:
 class Team:
 
     def __init__(self, teamID, orientation=0, x=0, y=0, direction=0, rank=0):
-        self.teamID: int = teamID
-        self.score: int = 0
+        self.teamID = teamID
+        self.score = 0
         self.ships = [Ship(self, rank=rank)] if x == 0 else [Ship(self, x, y, direction, rank)]
         self.enemy = []
         self.target = None
@@ -36,7 +36,7 @@ class Team:
                            self.ships[0].direction, self.ships[0].speed,
                            self.ships[0].shot, self.ships[0].shotRect.left, self.ships[0].shotRect.top,
                            self.ships[0].shotDirection, self.orientation, self.ships[0].hit, True)
-        self.lives: int = 3
+        self.lives = 3
         self.level = 0
         self.current = True
 
@@ -58,7 +58,7 @@ class Team:
         self.deets.lives = value
         self._lives = value
 
-    def update(self, deets: Deets):  # for remote player
+    def update(self, deets):  # for remote player
         self.deets = deets
         self.lives = self.deets.lives
         self.ships[0].rect.left = deets.left
@@ -175,13 +175,13 @@ class Ship:
                 self.inert = False
                 break
 
+    # set drone on closest enemy
     def retarget(self):
         rect1 = self.target.orient(self.team.orientation)
         rect2 = self.rect
         dist2 = pow(rect1.top - rect2.top, 2) + pow(rect1.left - rect2.left, 2)
         for ship in self.team.enemy:
             rect1 = ship.orient(self.team.orientation)
-            # print(self.team.teamID, rect2, self.target.team.teamID, rect1)
             if pow(rect1.top - rect2.top, 2) + pow(rect1.left - rect2.left, 2) < dist2 and not ship.inert:
                 self.target = ship
                 dist2 = pow(rect1.top - rect2.top, 2) + pow(rect1.left - rect2.left, 2)
