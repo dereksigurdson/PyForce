@@ -458,7 +458,7 @@ def draw_screen():
         for ship in team.ships:
             rotation = 0 if chess else (ship.direction + team.orientation + teams[0].orientation) * -90
             if not ship.inert:
-                image = shipImages[imageMap[team.teamID]][ship.rank][ship.speed]
+                image = shipImages[imageMap[team.teamID]][ship.rank][min(ship.speed, 3)]
                 screen.blit(pygame.transform.rotate(image, rotation), ship.orient(teams[0].orientation))
                 if ship.canTakeAHit:
                     screen.blit(shieldc if chess else shield, ship.orient(teams[0].orientation))
@@ -480,24 +480,42 @@ def no_shots():
     return True
 
 
-def update(network):
-    # send local teams' deets
-    if players == 3:
-        network.send(teams[2].deets)
-    deets = network.send(teams[0].deets)
+def update(network, force=False):
+    deets = None
+    while True:
+        # send local teams' deets
+        if players == 3:
+            network.send(teams[2].deets, force)
+        deets = network.send(teams[0].deets, force)
+        if deets is not None or not force:
+            break
 
-    # update remote teams' deets
-    if players == 2:
-        teams[1].update(deets[1 - teams[0].teamID])
-    elif players == 3:
-        teams[1].update(deets[1 - teams[0].teamID])
-        teams[3].update(deets[3 - teams[0].teamID])
-    elif players == 4:
-        for t in range(3):
-            try:
-                teams[t+1].update(deets[teams[t+1].teamID])
-            except:
-                pass
+    # update remote teams' deets (if they were retrieved before a timeout)
+    if deets is not None:
+        if players == 2:
+            teams[1].update(deets[1 - teams[0].teamID])
+        elif players == 3:
+            teams[1].update(deets[1 - teams[0].teamID])
+            teams[3].update(deets[3 - teams[0].teamID])
+        elif players == 4:
+            for t in range(3):
+                try:
+                    teams[t+1].update(deets[teams[t+1].teamID])
+                except:
+                    pass
+    else:
+        if players == 2:
+            teams[1].ships[0].move()
+        elif players == 3:
+            teams[1].ships[0].move()
+            teams[3].ships[0].move()
+        elif players == 4:
+            for t in range(3):
+                try:
+                    teams[t+1].ships[0].move()
+                except:
+                    pass
+
 
 
     return deets
@@ -546,13 +564,13 @@ def pvp():
                 if event.key == K_ESCAPE:
                     return "Esc"
 
-        data = network.send(teams[0].deets)
+        data = network.send(teams[0].deets, True)
         if len(data) >= users:  # enough players have joined
             break
         else:
-            screen.blit(pygame.Surface((40, 40)), (info.left + info.width - 110, info.top + 5 + 60 * players))
+            screen.blit(pygame.Surface((40, 40)), (info.left + info.width - 110, info.top + 5 + 60 * players + 150))
             screen.blit(font40.render(str(len(data)), True, (180, 0, 0)),
-                                      (info.left + info.width - 100, info.top + 5 + 60 * players))
+                                      (info.left + info.width - 100, info.top + 5 + 60 * players + 150))
             # text = font40.render(str(len(data)) + " of " + str(users), True, (180, 0, 0))
             # screen.blit(pygame.Surface((info.width, 50)), (info.left, info.top + 230))
             # screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 230))
@@ -615,7 +633,7 @@ def pvp():
         teams[0].ships[0].move(key)  # move self
         # teams[1].ships[0].move(0)  # move remote ship (momentum)
         if players == 3:
-            teams[2].ships[0].move(-3) # move assigned drone
+            teams[2].ships[0].move(-6)  # move assigned drone
 
         update(network)
 
@@ -639,14 +657,14 @@ def pvp():
             # Make sure all threads are current
             t = time.time()
             while True:
-                deets = update(network)
+                deets = update(network, True)
                 for deet in deets:
                     if not deets[deet].current and deets[deet].lives > 0:
                         screen.blit(pygame.Surface((450, 200)), (info.left, info.top + 270))
                         text = font20.render("Player has been hit!", True, (180, 0, 0))
-                        screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 290))
+                        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 290))
                         text = font20.render("Must update before continuing...", True, (180, 0, 0))
-                        screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 320))
+                        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 320))
                         pygame.display.update(info)
                         if time.time() < t + 1:
                             ship_hit = False
@@ -654,9 +672,9 @@ def pvp():
                         else:
                             screen.blit(pygame.Surface((450, 200)), (info.left, info.top + 270))
                             text = font20.render("Player not responding", True, (180, 0, 0))
-                            screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 290))
+                            screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 290))
                             text = font20.render("Sacrifices must be made...", True, (180, 0, 0))
-                            screen.blit(text, (info.left + info.width / 2 - text.get_width() / 2, info.top + 320))
+                            screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 320))
                             pygame.display.update(info)
                             time.sleep(.5)
                             ship_hit = False
@@ -696,7 +714,7 @@ def pvp():
             update(network)
             delay = 10  # if len(booms) > 0 else 0
             while delay:
-                time.sleep(1.0 / 50)
+                time.sleep(1.0 / 25)
                 draw_screen()
                 delay -= 1
             return winner
@@ -715,7 +733,7 @@ def pvp():
                 key = event.key
 
         draw_screen()
-        clock.tick(50)
+        clock.tick(25)
         #  time.sleep(1.0 / 50)
 
 
@@ -729,6 +747,7 @@ def pve():
     teams[1].target = ship0
     load_images()
 
+    clock = pygame.time.Clock()
     levelable = True
     extras = 3
     key = 0
@@ -851,7 +870,8 @@ def pve():
             levelable = True
             # teams[1].ships[1] = ship0
 
-        time.sleep(1.0 / 50)
+        clock.tick(25)
+        #time.sleep(1.0 / 50)
 
 
 def main():
@@ -861,38 +881,40 @@ def main():
 
     while True:
 
-        buttons = [Button("Single Player", 115, 60, 200, 50, -1),
-                   Button("Head to Head", 115, 120, 200, 50, -2),
-                   Button("+ Head to Head +", 115, 180, 200, 50, -3),
-                   Button("Free for All", 115, 240, 200, 50, -4),
-                   Button("Derek", 25, 350, size + 50, size + 40, 0),
-                   Button("Krista", 125, 350, size + 50, size + 40, 1),
-                   Button("Avery", 325, 350, size + 50, size + 40, 2),
-                   Button("Ben", 225, 350, size + 50, size + 40, 3)]
+        buttons = [Button("Single Player", 118, 60 + 150, 200, 50, -1),
+                   Button("Head to Head", 118, 120 + 150, 200, 50, -2),
+                   Button("+ Head to Head +", 118, 180 + 150, 200, 50, -3),
+                   Button("Free for All", 118, 240 + 150, 200, 50, -4),
+                   Button("Derek", 29, 70, size + 50, size + 40, 0),
+                   Button("Krista", 129, 70, size + 50, size + 40, 1),
+                   Button("Avery", 329, 70, size + 50, size + 40, 2),
+                   Button("Ben", 229, 70, size + 50, size + 40, 3)]
 
         draw_screen()
 
         screen.blit(pygame.Surface((info.width, info.height)), (info.left, info.top))
         text = font40.render("Select Game Mode:", True, (0, 128, 0))
-        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 10))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 160))
         text = font40.render("Select Team:", True, (0, 128, 0))
-        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 300))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 10))
+        text = font20.render("(optional)", True, (0, 128, 0))
+        screen.blit(text, (info.left + info.width // 2 - text.get_width() // 2, info.top + 45))
 
         text = font20.render("Players Required:", True, (0, 128, 0))
-        screen.blit(pygame.transform.rotate(text, 90), (info.left + 20, info.top + 70))
+        screen.blit(pygame.transform.rotate(text, 90), (info.left + 20, info.top + 70 + 150))
 
-        screen.blit(font40.render("1", True, (0, 128, 0)), (info.left + 60, info.top + 65))
-        screen.blit(font40.render("2", True, (0, 128, 0)), (info.left + 60, info.top + 125))
-        screen.blit(font40.render("2", True, (0, 128, 0)), (info.left + 60, info.top + 185))
-        screen.blit(font40.render("4", True, (0, 128, 0)), (info.left + 60, info.top + 245))
+        screen.blit(font40.render("1", True, (0, 128, 0)), (info.left + 60, info.top + 65 + 150))
+        screen.blit(font40.render("2", True, (0, 128, 0)), (info.left + 60, info.top + 125 + 150))
+        screen.blit(font40.render("2", True, (0, 128, 0)), (info.left + 60, info.top + 185 + 150))
+        screen.blit(font40.render("4", True, (0, 128, 0)), (info.left + 60, info.top + 245 + 150))
 
         text = font20.render("Players Registered:", True, (0, 128, 0))
-        screen.blit(pygame.transform.rotate(text, -90), (info.left + info.width - 60, info.top + 70))
+        screen.blit(pygame.transform.rotate(text, -90), (info.left + info.width - 60, info.top + 70 + 150))
 
-        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 65))
-        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 125))
-        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 185))
-        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 245))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 65 + 150))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 125 + 150))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 185 + 150))
+        screen.blit(font40.render("0", True, (0, 128, 0)), (info.left + info.width - 100, info.top + 245 + 150))
 
         for button in buttons:
             button.draw()
@@ -910,6 +932,7 @@ def main():
                     else:
                         chess = False
                         screen.blit(grid, gridrect)
+
                     pygame.display.update(pygame.Rect(0,0,info.left, gridrect.height))
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -924,13 +947,12 @@ def main():
                             else:
                                 waiting_for_user = False
                                 break
-                    pygame.display.update((info.left, info.top + 345, 500, 90))
+                    pygame.display.update((info.left, info.top + 60, 500, 90))
 
+        players = button.teamID * -1
         if button.text == "Single Player":
-            players = 1
             game_over(pve())
         else:
-            players = button.teamID * -1
             game_over(pvp())
 
         teams = []

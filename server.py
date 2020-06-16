@@ -17,7 +17,6 @@ except socket.error as e:
 game_socket.listen(2)
 print("Waiting for a connection, Server Started")
 
-# connected = set()  # nec?
 games = {}
 idCount = {2: 0, 3: 0, 4: 0}
 nextGame = {2: 0, 3: 0, 4: 0}
@@ -26,12 +25,12 @@ nextGame = {2: 0, 3: 0, 4: 0}
 def threaded_client(conn, teamID, gameID):
     global idCount
 
-    # 1st response to netwotrk class is teamID
+    # 1st response to network class is teamID
     conn.send(str.encode(str(teamID)))
 
     while True:
         try:
-            data = pickle.loads(conn.recv(2048))
+            data = pickle.loads(conn.recv(1024))
 
             if gameID in games:  # don't know why it wouldn't be
                 game = games[gameID]
@@ -68,10 +67,9 @@ while True:
     print("Connected to:", address)
 
     teamID = 0
-    mode = int(conn.recv(2048).decode())
+    mode = int(conn.recv(1024).decode())
     idCount[mode] += 1
-    requiredPlayers = {2: 2,3: 2, 4: 4}
-
+    requiredPlayers = {2: 2, 3: 2, 4: 4}
 
     if idCount[mode] % requiredPlayers[mode] == 1:
         gameID += 1

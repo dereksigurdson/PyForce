@@ -82,7 +82,7 @@ class Ship:
         self.speed = 0
         self.team = team
         self.shot = False
-        self.shotSpeed = 5
+        self.shotSpeed = 10
         self.hit = False
         self.inert = False  # so bullet persists
         self.rect = pygame.Rect(x, y, size, size)
@@ -110,7 +110,7 @@ class Ship:
         # reassign rank for image
         if self.autopilot:
             self.rank = 3 if self.canFollow else 2 if self.canSee else 1
-            self.speed = 3 if self.isFast else 2
+            self.speed = 6 if self.isFast else 4
         else:
             self.rank = 0
 
@@ -177,6 +177,8 @@ class Ship:
 
     # set drone on closest enemy
     def retarget(self):
+        if self.target is None:
+            self.target = self.team.enemy[0]
         rect1 = self.target.orient(self.team.orientation)
         rect2 = self.rect
         dist2 = pow(rect1.top - rect2.top, 2) + pow(rect1.left - rect2.left, 2)
@@ -213,7 +215,7 @@ class Ship:
             if key in [K_RCTRL, K_LCTRL, K_5]:
                 self.speed = 0
             if key in [K_LEFT, K_4, K_a, K_RIGHT, K_6, K_d, K_UP, K_8, K_w, K_DOWN, K_2, K_s]:
-                self.speed = 3
+                self.speed = 6
 
             if key in [K_SPACE] or self.shot:
                 self.shoot()
@@ -232,7 +234,7 @@ class Ship:
         self.update()  # keep current
 
     def shoot(self):
-        if not self.shot:  # bullet's not already out there
+        if not self.shot and not self.inert:  # bullet's not already out there and ship's not been shot
             self.shot = True
             self.shotRect = self.rect.copy()
             self.shotDirection = self.direction
@@ -249,7 +251,7 @@ class Ship:
                 self.shotRect.top = self.rect.top + size // 2
                 self.shotRect.left = self.rect.left
 
-        else:  # shot already fired, so move it
+        elif self.shot:  # shot already fired, so move it
             if self.shotDirection == 0:
                 self.shotRect.top = self.shotRect.top - self.shotSpeed
             elif self.shotDirection == 1:

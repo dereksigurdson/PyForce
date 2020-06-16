@@ -18,13 +18,18 @@ class Network:
         try:
             self.client.connect(self.address)
             self.client.send(str.encode(str(mode)))
-            return self.client.recv(2048).decode()
-        except:
-            return "Server not available"
-
-    def send(self, data):
-        try:
-            self.client.send(pickle.dumps(data))
-            return pickle.loads(self.client.recv(2048))
+            self.client.settimeout(.04)
+            return self.client.recv(1024).decode()
         except socket.error as e:
             print(e)
+            return "Server not available"
+
+    def send(self, data, force=False):
+        if force:
+            self.client.settimeout(2)
+        try:
+            self.client.send(pickle.dumps(data))
+            return pickle.loads(self.client.recv(1024))
+        except socket.error as e:
+            print(e)
+        self.client.settimeout(.04)
